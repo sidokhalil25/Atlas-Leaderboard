@@ -14,9 +14,8 @@
 const { useState, useEffect, useRef } = React;
 
 const API_KEY = "$2a$10$WSWUhcWGMW46WYE4ueCIqeAdNqAL4GgT4YzPQ5PmTyT/2nPYA1dqm";
-const BIN_NAME = "atlas-leaderboard";
+const BIN_ID = "69e68c81aaba8821971d3f11";
 const ADMIN_PIN = "13122";
-// JSONBin Key: aktiv ✅ | Admin PIN: 13122 ✅
 const CATS = [
   {key:"kip",label:"KIP"},{key:"digi",label:"Digi"},
   {key:"net",label:"Net"},{key:"mobile",label:"Mobile"},{key:"upsell",label:"Upsell"}
@@ -25,39 +24,19 @@ const CATS = [
 function hashPin(p){let h=0;for(let i=0;i<p.length;i++)h=(Math.imul(31,h)+p.charCodeAt(i))|0;return h.toString();}
 function crColor(cr){if(cr>=20)return{bg:"#002a12",fg:"#00A651"};if(cr>=10)return{bg:"#1a1000",fg:"#f5a623"};return{bg:"#1a0000",fg:"#E8002D"};}
 
-// JSONBin API helpers
-async function getBinId(){
-  // Search for existing bin
-  const r = await fetch("https://api.jsonbin.io/v3/b?count=true",{headers:{"X-Master-Key":API_KEY}});
-  if(!r.ok) return null;
-  const bins = await fetch("https://api.jsonbin.io/v3/b",{headers:{"X-Master-Key":API_KEY,"X-Bin-Name":BIN_NAME}});
-  return null;
-}
-
 async function loadFromCloud(){
   try {
-    // Try to get bin id from localStorage
-    let binId = localStorage.getItem("atlas_bin_id");
-    if(!binId){
-      // Create new bin
-      const r = await fetch("https://api.jsonbin.io/v3/b",{
-        method:"POST",
-        headers:{"Content-Type":"application/json","X-Master-Key":API_KEY,"X-Bin-Name":BIN_NAME,"X-Private":"false"},
-        body:JSON.stringify({members:[]})
-      });
-      const d = await r.json();
-      binId = d.metadata.id;
-      localStorage.setItem("atlas_bin_id", binId);
-    }
-    const r = await fetch(`https://api.jsonbin.io/v3/b/${binId}/latest`,{headers:{"X-Master-Key":API_KEY}});
+    const r = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`,{
+      headers:{"X-Master-Key":API_KEY}
+    });
     const d = await r.json();
-    return { binId, members: d.record.members || [] };
-  } catch(e){ return null; }
+    return { members: d.record.members || [] };
+  } catch(e){ return { members:[] }; }
 }
 
-async function saveToCloud(binId, members){
+async function saveToCloud(members){
   try {
-    await fetch(`https://api.jsonbin.io/v3/b/${binId}`,{
+    await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`,{
       method:"PUT",
       headers:{"Content-Type":"application/json","X-Master-Key":API_KEY},
       body:JSON.stringify({members})
@@ -77,7 +56,6 @@ const S = {
 
 function App(){
   const [members,setMembers]=useState([]);
-  const [binId,setBinId]=useState(null);
   const [view,setView]=useState("board");
   const [period,setPeriod]=useState("week");
   const [user,setUser]=useState(null);
@@ -100,7 +78,7 @@ function App(){
 
   useEffect(()=>{
     loadFromCloud().then(res=>{
-      if(res){ setBinId(res.binId); setMembers(res.members); }
+      if(res){ setMembers(res.members); }
       setLoading(false);
     });
   },[]);
@@ -108,7 +86,7 @@ function App(){
   async function save(m){
     setMembers([...m]);
     setSaving(true);
-    await saveToCloud(binId,m);
+    await saveToCloud(m);
     setSaving(false);
   }
 
