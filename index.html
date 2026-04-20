@@ -11,10 +11,10 @@
 <body>
 <div id="root"></div>
 <script>
-const { useState, useEffect, useRef } = React;
+const { useState, useEffect } = React;
 
-const API_KEY = "$2a$10$WSWUhcWGMW46WYE4ueCIqeAdNqAL4GgT4YzPQ5PmTyT/2nPYA1dqm";
-const BIN_ID = "69e68c81aaba8821971d3f11";
+const API_KEY  = "$2a$10$WSWUhcWGMW46WYE4ueCIqeAdNqAL4GgT4YzPQ5PmTyT/2nPYA1dqm";
+const BIN_ID   = "69e68c81aaba8821971d3f11";
 const ADMIN_PIN = "13122";
 const CATS = [
   {key:"kip",label:"KIP"},{key:"digi",label:"Digi"},
@@ -24,24 +24,18 @@ const CATS = [
 function hashPin(p){let h=0;for(let i=0;i<p.length;i++)h=(Math.imul(31,h)+p.charCodeAt(i))|0;return h.toString();}
 function crColor(cr){if(cr>=20)return{bg:"#002a12",fg:"#00A651"};if(cr>=10)return{bg:"#1a1000",fg:"#f5a623"};return{bg:"#1a0000",fg:"#E8002D"};}
 
-async function loadFromCloud(){
-  try {
-    const r = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`,{
-      headers:{"X-Master-Key":API_KEY}
-    });
-    const d = await r.json();
-    return { members: d.record.members || [] };
-  } catch(e){ return { members:[] }; }
+async function cloudLoad(){
+  const r = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`,{headers:{"X-Master-Key":API_KEY}});
+  const d = await r.json();
+  return d.record.members || [];
 }
 
-async function saveToCloud(members){
-  try {
-    await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`,{
-      method:"PUT",
-      headers:{"Content-Type":"application/json","X-Master-Key":API_KEY},
-      body:JSON.stringify({members})
-    });
-  } catch(e){}
+async function cloudSave(members){
+  await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`,{
+    method:"PUT",
+    headers:{"Content-Type":"application/json","X-Master-Key":API_KEY},
+    body:JSON.stringify({members})
+  });
 }
 
 const S = {
@@ -55,39 +49,36 @@ const S = {
 };
 
 function App(){
-  const [members,setMembers]=useState([]);
-  const [binId,setBinId]=useState(null);
-  const [view,setView]=useState("board");
-  const [period,setPeriod]=useState("week");
-  const [user,setUser]=useState(null);
-  const [loginName,setLoginName]=useState("");
-  const [loginPin,setLoginPin]=useState("");
-  const [loginErr,setLoginErr]=useState("");
-  const [entry,setEntry]=useState({kip:"",digi:"",net:"",mobile:"",upsell:"",gespräche:"",kunden:""});
-  const [entryMsg,setEntryMsg]=useState("");
-  const [adminPin,setAdminPin]=useState("");
-  const [adminErr,setAdminErr]=useState("");
-  const [adminOk,setAdminOk]=useState(false);
-  const [newName,setNewName]=useState("");
-  const [newPin,setNewPin]=useState("");
-  const [addMsg,setAddMsg]=useState("");
-  const [bulkText,setBulkText]=useState("");
-  const [bulkPin,setBulkPin]=useState("");
-  const [bulkMsg,setBulkMsg]=useState("");
-  const [loading,setLoading]=useState(true);
-  const [saving,setSaving]=useState(false);
+  const [members,  setMembers]  = useState([]);
+  const [view,     setView]     = useState("board");
+  const [period,   setPeriod]   = useState("week");
+  const [user,     setUser]     = useState(null);
+  const [loading,  setLoading]  = useState(true);
+  const [saving,   setSaving]   = useState(false);
+  const [loginName,setLoginName]= useState("");
+  const [loginPin, setLoginPin] = useState("");
+  const [loginErr, setLoginErr] = useState("");
+  const [entry,    setEntry]    = useState({kip:"",digi:"",net:"",mobile:"",upsell:"",gespräche:"",kunden:""});
+  const [entryMsg, setEntryMsg] = useState("");
+  const [adminPin, setAdminPin] = useState("");
+  const [adminErr, setAdminErr] = useState("");
+  const [adminOk,  setAdminOk]  = useState(false);
+  const [newName,  setNewName]  = useState("");
+  const [newPin,   setNewPin]   = useState("");
+  const [addMsg,   setAddMsg]   = useState("");
+  const [bulkText, setBulkText] = useState("");
+  const [bulkPin,  setBulkPin]  = useState("");
+  const [bulkMsg,  setBulkMsg]  = useState("");
 
   useEffect(()=>{
-    loadFromCloud().then(res=>{
-      if(res){ setMembers(res.members); }
-      setLoading(false);
-    });
+    cloudLoad().then(m=>{ setMembers(m); setLoading(false); })
+               .catch(()=>setLoading(false));
   },[]);
 
   async function save(m){
     setMembers([...m]);
     setSaving(true);
-    await saveToCloud(m);
+    try{ await cloudSave(m); }catch(e){}
     setSaving(false);
   }
 
@@ -101,7 +92,11 @@ function App(){
     });
     const s={gespräche:0,kunden:0};
     CATS.forEach(c=>s[c.key]=0);
-    filtered.forEach(e=>{s.gespräche+=e.gespräche||0;s.kunden+=e.kunden||0;CATS.forEach(c=>s[c.key]+=e[c.key]||0);});
+    filtered.forEach(e=>{
+      s.gespräche+=e.gespräche||0;
+      s.kunden+=e.kunden||0;
+      CATS.forEach(c=>s[c.key]+=e[c.key]||0);
+    });
     s.total=CATS.reduce((sum,c)=>sum+s[c.key],0);
     s.cr=s.gespräche>0?(s.kunden/s.gespräche*100):null;
     return s;
@@ -117,8 +112,10 @@ function App(){
   }
 
   async function doEntry(){
-    const vals={};CATS.forEach(c=>vals[c.key]=parseInt(entry[c.key])||0);
-    vals.gespräche=parseInt(entry.gespräche)||0;vals.kunden=parseInt(entry.kunden)||0;
+    const vals={};
+    CATS.forEach(c=>vals[c.key]=parseInt(entry[c.key])||0);
+    vals.gespräche=parseInt(entry.gespräche)||0;
+    vals.kunden=parseInt(entry.kunden)||0;
     const total=CATS.reduce((s,c)=>s+vals[c.key],0);
     if(!total&&!vals.gespräche&&!vals.kunden){setEntryMsg("Mindestens einen Wert.");return;}
     const updated=members.map(m=>m.name!==user?m:{...m,entries:[...(m.entries||[]),{date:new Date().toISOString(),...vals}]});
@@ -132,7 +129,8 @@ function App(){
     if(!newName.trim()||newPin.length<4){setAddMsg("Name + mind. 4-stellige PIN.");return;}
     if(members.find(m=>m.name.toLowerCase()===newName.trim().toLowerCase())){setAddMsg("Bereits vorhanden.");return;}
     await save([...members,{name:newName.trim(),pinHash:hashPin(newPin),entries:[]}]);
-    setNewName("");setNewPin("");setAddMsg(`${newName.trim()} hinzugefügt!`);
+    setNewName("");setNewPin("");
+    setAddMsg(`${newName.trim()} hinzugefügt!`);
     setTimeout(()=>setAddMsg(""),2000);
   }
 
@@ -148,27 +146,28 @@ function App(){
     setTimeout(()=>setBulkMsg(""),3000);
   }
 
-  async function doDelete(name){await save(members.filter(m=>m.name!==name));}
+  async function doDelete(name){ await save(members.filter(m=>m.name!==name)); }
 
-  if(loading)return React.createElement("div",{style:{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",color:"#333",fontSize:"1rem"}},"Laden…");
+  if(loading) return React.createElement("div",{style:{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",color:"#555"}},"Laden…");
 
   return React.createElement("div",{style:{minHeight:"100vh",paddingBottom:40}},
 
-    // NAV
+    /* NAV */
     React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"13px 16px",borderBottom:"1px solid #1a1a1a",flexWrap:"wrap",gap:8}},
       React.createElement("div",{style:{fontWeight:800,fontSize:"1rem",display:"flex",alignItems:"center",gap:8}},
-        React.createElement("span",{style:{background:"#E8002D",color:"#fff",fontSize:".65rem",fontWeight:800,padding:"2px 8px",borderRadius:3,letterSpacing:".06em"}},"ATLAS"),
+        React.createElement("span",{style:{background:"#E8002D",color:"#fff",fontSize:".65rem",fontWeight:800,padding:"2px 8px",borderRadius:3}},"ATLAS"),
         "Leaderboard",
-        saving&&React.createElement("span",{style:{fontSize:".65rem",color:"#555",marginLeft:8}},"speichert…")
+        saving&&React.createElement("span",{style:{fontSize:".65rem",color:"#555",marginLeft:6}},"speichert…")
       ),
       React.createElement("div",{style:{display:"flex",gap:8}},
-        user?React.createElement("button",{style:S.gray,onClick:()=>{setUser(null);setView("board");}},"Abmelden")
-           :React.createElement("button",{style:S.red,onClick:()=>setView("login")},"+Eintragen"),
+        user
+          ?React.createElement("button",{style:S.gray,onClick:()=>{setUser(null);setView("board");}},"Abmelden")
+          :React.createElement("button",{style:S.red,onClick:()=>setView("login")},"+Eintragen"),
         React.createElement("button",{style:S.gray,onClick:()=>setView("admin")},"Admin")
       )
     ),
 
-    // BOARD
+    /* BOARD */
     view==="board"&&React.createElement("div",null,
       React.createElement("div",{style:{display:"flex",gap:8,padding:"14px 16px 0"}},
         [["week","Woche"],["month","Monat"],["alltime","Gesamt"]].map(([k,l])=>
@@ -188,16 +187,22 @@ function App(){
             )
           ),
           React.createElement("tbody",null,
-            members.length===0&&React.createElement("tr",null,React.createElement("td",{colSpan:9,style:{...S.td,color:"#333",padding:24,textAlign:"center"}},"Noch keine Mitglieder — Admin → Mitglieder hinzufügen")),
+            members.length===0&&React.createElement("tr",null,
+              React.createElement("td",{colSpan:9,style:{...S.td,color:"#333",padding:24,textAlign:"center"}},"Keine Mitglieder — Admin → hinzufügen")
+            ),
             ranked.map((m,i)=>{
-              const s=getStats(m);const cc=s.cr!==null?crColor(s.cr):null;
+              const s=getStats(m);
+              const cc=s.cr!==null?crColor(s.cr):null;
               return React.createElement("tr",{key:m.name,style:{background:i===0&&s.total>0?"#150505":"transparent"}},
                 React.createElement("td",{style:{...S.td,textAlign:"left",paddingLeft:14,color:"#444",fontWeight:700,fontSize:".75rem"}},i+1),
                 React.createElement("td",{style:{...S.td,textAlign:"left",fontWeight:700,color:"#ddd",whiteSpace:"nowrap"}},m.name),
                 ...CATS.map(c=>React.createElement("td",{key:c.key,style:{...S.td,color:s[c.key]>0?"#fff":"#2a2a2a",fontWeight:s[c.key]>0?600:400}},s[c.key]>0?s[c.key]:"–")),
                 React.createElement("td",{style:{...S.td,color:"#555"}},s.gespräche>0?s.gespräche:"–"),
                 React.createElement("td",{style:{...S.td,color:"#555"}},s.kunden>0?s.kunden:"–"),
-                React.createElement("td",{style:S.td},cc?React.createElement("span",{style:{background:cc.bg,color:cc.fg,borderRadius:4,padding:"2px 7px",fontSize:".73rem",fontWeight:700}},s.cr.toFixed(1)+"%"):React.createElement("span",{style:{color:"#2a2a2a"}},"–"))
+                React.createElement("td",{style:S.td},
+                  cc?React.createElement("span",{style:{background:cc.bg,color:cc.fg,borderRadius:4,padding:"2px 7px",fontSize:".73rem",fontWeight:700}},s.cr.toFixed(1)+"%")
+                    :React.createElement("span",{style:{color:"#2a2a2a"}},"–")
+                )
               );
             })
           )
@@ -208,7 +213,7 @@ function App(){
       )
     ),
 
-    // LOGIN
+    /* LOGIN */
     view==="login"&&React.createElement("div",{style:S.card},
       React.createElement("div",{style:{fontWeight:800,fontSize:"1rem",marginBottom:14}},"Einloggen"),
       React.createElement("label",{style:S.lbl},"Name"),
@@ -222,7 +227,7 @@ function App(){
       )
     ),
 
-    // ENTRY
+    /* ENTRY */
     view==="entry"&&React.createElement("div",{style:S.card},
       React.createElement("div",{style:{fontWeight:800,fontSize:"1rem",marginBottom:4}},`Hey ${user}`),
       React.createElement("div",{style:{color:"#444",fontSize:".82rem",marginBottom:14}},"Heute eintragen:"),
@@ -233,8 +238,14 @@ function App(){
         ))
       ),
       React.createElement("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 12px"}},
-        React.createElement("div",null,React.createElement("label",{style:S.lbl},"Gespräche"),React.createElement("input",{style:S.inp,type:"number",min:"0",placeholder:"0",value:entry.gespräche,onChange:e=>setEntry({...entry,gespräche:e.target.value})})),
-        React.createElement("div",null,React.createElement("label",{style:S.lbl},"Geschr. Kunden"),React.createElement("input",{style:S.inp,type:"number",min:"0",placeholder:"0",value:entry.kunden,onChange:e=>setEntry({...entry,kunden:e.target.value})}))
+        React.createElement("div",null,
+          React.createElement("label",{style:S.lbl},"Gespräche"),
+          React.createElement("input",{style:S.inp,type:"number",min:"0",placeholder:"0",value:entry.gespräche,onChange:e=>setEntry({...entry,gespräche:e.target.value})})
+        ),
+        React.createElement("div",null,
+          React.createElement("label",{style:S.lbl},"Geschr. Kunden"),
+          React.createElement("input",{style:S.inp,type:"number",min:"0",placeholder:"0",value:entry.kunden,onChange:e=>setEntry({...entry,kunden:e.target.value})})
+        )
       ),
       entryMsg&&React.createElement("div",{style:{color:"#00A651",fontSize:".8rem",marginBottom:8}},entryMsg),
       React.createElement("div",{style:{display:"flex",gap:8}},
@@ -243,13 +254,14 @@ function App(){
       )
     ),
 
-    // ADMIN
+    /* ADMIN */
     view==="admin"&&React.createElement("div",{style:S.card},
       React.createElement("div",{style:{fontWeight:800,fontSize:"1rem",marginBottom:14}},"Admin"),
       !adminOk
         ?React.createElement("div",null,
             React.createElement("label",{style:S.lbl},"Admin-PIN"),
-            React.createElement("input",{style:S.inp,type:"password",placeholder:"••••",value:adminPin,onChange:e=>setAdminPin(e.target.value),onKeyDown:e=>{if(e.key==="Enter")adminPin===ADMIN_PIN?(setAdminOk(true),setAdminErr("")):(setAdminErr("Falsche PIN."));}}),
+            React.createElement("input",{style:S.inp,type:"password",placeholder:"••••",value:adminPin,onChange:e=>setAdminPin(e.target.value),
+              onKeyDown:e=>{if(e.key==="Enter")adminPin===ADMIN_PIN?(setAdminOk(true),setAdminErr("")):(setAdminErr("Falsche PIN."));}}),
             adminErr&&React.createElement("div",{style:{color:"#E8002D",fontSize:".8rem",marginBottom:8}},adminErr),
             React.createElement("div",{style:{display:"flex",gap:8}},
               React.createElement("button",{style:S.red,onClick:()=>adminPin===ADMIN_PIN?(setAdminOk(true),setAdminErr("")):(setAdminErr("Falsche PIN."))},"Entsperren"),
@@ -260,7 +272,7 @@ function App(){
             React.createElement("div",{style:{background:"#0d0d0d",border:"1px solid #262626",borderRadius:8,padding:14,marginBottom:20}},
               React.createElement("div",{style:{fontWeight:700,fontSize:".88rem",marginBottom:2,color:"#ccc"}},"Alle Namen importieren"),
               React.createElement("div",{style:{color:"#444",fontSize:".75rem",marginBottom:10}},"Ein Name pro Zeile"),
-              React.createElement("textarea",{style:{...S.inp,height:120,resize:"vertical",marginBottom:8,fontFamily:"inherit"},placeholder:"Adam Magomedov\nAhmet Kökösari\n...",value:bulkText,onChange:e=>setBulkText(e.target.value)}),
+              React.createElement("textarea",{style:{...S.inp,height:120,resize:"vertical",fontFamily:"inherit"},placeholder:"Adam Magomedov\nAhmet Kökösari\n...",value:bulkText,onChange:e=>setBulkText(e.target.value)}),
               React.createElement("label",{style:S.lbl},"Standard-PIN für alle"),
               React.createElement("input",{style:S.inp,type:"password",placeholder:"••••",value:bulkPin,onChange:e=>setBulkPin(e.target.value)}),
               bulkMsg&&React.createElement("div",{style:{color:bulkMsg.includes("!")?"#00A651":"#E8002D",fontSize:".8rem",marginBottom:8}},bulkMsg),
