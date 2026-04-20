@@ -13,8 +13,7 @@
 <script>
 const { useState, useEffect } = React;
 
-const API_KEY  = "$2a$10$WSWUhcWGMW46WYE4ueCIqeAdNqAL4GgT4YzPQ5PmTyT/2nPYA1dqm";
-const BIN_ID   = "69e68c81aaba8821971d3f11";
+const DB_URL   = "https://atlas-scoreboard-default-rtdb.firebaseio.com";
 const ADMIN_PIN = "13122";
 const CATS = [
   {key:"kip",label:"KIP"},{key:"digi",label:"Digi"},
@@ -25,16 +24,20 @@ function hashPin(p){let h=0;for(let i=0;i<p.length;i++)h=(Math.imul(31,h)+p.char
 function crColor(cr){if(cr>=20)return{bg:"#002a12",fg:"#00A651"};if(cr>=10)return{bg:"#1a1000",fg:"#f5a623"};return{bg:"#1a0000",fg:"#E8002D"};}
 
 async function cloudLoad(){
-  const r = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`,{headers:{"X-Master-Key":API_KEY}});
+  const r = await fetch(`${DB_URL}/members.json`);
   const d = await r.json();
-  return d.record.members || [];
+  if(!d) return [];
+  return Object.values(d);
 }
 
 async function cloudSave(members){
-  await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`,{
+  // Convert array to object with name as key
+  const obj = {};
+  members.forEach(m => { obj[m.name.replace(/[.#$\/\[\]]/g,"_")] = m; });
+  await fetch(`${DB_URL}/members.json`, {
     method:"PUT",
-    headers:{"Content-Type":"application/json","X-Master-Key":API_KEY},
-    body:JSON.stringify({members})
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify(obj)
   });
 }
 
@@ -71,14 +74,15 @@ function App(){
   const [bulkMsg,  setBulkMsg]  = useState("");
 
   useEffect(()=>{
-    cloudLoad().then(m=>{ setMembers(m); setLoading(false); })
-               .catch(()=>setLoading(false));
+    cloudLoad()
+      .then(m=>{ setMembers(m); setLoading(false); })
+      .catch(()=>setLoading(false));
   },[]);
 
   async function save(m){
     setMembers([...m]);
     setSaving(true);
-    try{ await cloudSave(m); }catch(e){}
+    try{ await cloudSave(m); }catch(e){ console.error(e); }
     setSaving(false);
   }
 
@@ -152,7 +156,6 @@ function App(){
 
   return React.createElement("div",{style:{minHeight:"100vh",paddingBottom:40}},
 
-    /* NAV */
     React.createElement("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"13px 16px",borderBottom:"1px solid #1a1a1a",flexWrap:"wrap",gap:8}},
       React.createElement("div",{style:{fontWeight:800,fontSize:"1rem",display:"flex",alignItems:"center",gap:8}},
         React.createElement("span",{style:{background:"#E8002D",color:"#fff",fontSize:".65rem",fontWeight:800,padding:"2px 8px",borderRadius:3}},"ATLAS"),
@@ -167,7 +170,6 @@ function App(){
       )
     ),
 
-    /* BOARD */
     view==="board"&&React.createElement("div",null,
       React.createElement("div",{style:{display:"flex",gap:8,padding:"14px 16px 0"}},
         [["week","Woche"],["month","Monat"],["alltime","Gesamt"]].map(([k,l])=>
@@ -213,7 +215,6 @@ function App(){
       )
     ),
 
-    /* LOGIN */
     view==="login"&&React.createElement("div",{style:S.card},
       React.createElement("div",{style:{fontWeight:800,fontSize:"1rem",marginBottom:14}},"Einloggen"),
       React.createElement("label",{style:S.lbl},"Name"),
@@ -227,7 +228,6 @@ function App(){
       )
     ),
 
-    /* ENTRY */
     view==="entry"&&React.createElement("div",{style:S.card},
       React.createElement("div",{style:{fontWeight:800,fontSize:"1rem",marginBottom:4}},`Hey ${user}`),
       React.createElement("div",{style:{color:"#444",fontSize:".82rem",marginBottom:14}},"Heute eintragen:"),
@@ -254,7 +254,6 @@ function App(){
       )
     ),
 
-    /* ADMIN */
     view==="admin"&&React.createElement("div",{style:S.card},
       React.createElement("div",{style:{fontWeight:800,fontSize:"1rem",marginBottom:14}},"Admin"),
       !adminOk
